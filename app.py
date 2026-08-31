@@ -127,18 +127,20 @@ s2_plunge, s2_trend = mplstereonet.plane_intersection(sf1_strike, sf1_dip, sf2_s
 s1_plunge, s1_trend = mplstereonet.pole(gf_strike, gf_dip)
 s3_plunge, s3_trend = mplstereonet.pole((gf_strike + 90) % 360, gf_dip)
 
-# 3. Perhitungan Kedudukan Bidang Bantu (Auxiliary Plane)
+# 3. Perhitungan Net-Slip dan Bidang Bantu (Auxiliary Plane)
 if has_pitch:
-    # Menghitung Rake Vector Sesar Utama -> Pole Bidang Bantu
+    # Menghitung Rake Vector Sesar Utama -> Vektor Net-Slip
     rake_sign = pitch if ("East" in pitch_quadrant or "North" in pitch_quadrant) else -pitch
-    slicken_plunge, slicken_trend = mplstereonet.rake(f_strike, f_dip, rake_sign)
-    aux_strike = (slicken_trend[0] - 90) % 360
-    aux_dip = 90 - slicken_plunge[0]
+    netslip_plunge, netslip_trend = mplstereonet.rake(f_strike, f_dip, rake_sign)
+    aux_strike = (netslip_trend[0] - 90) % 360
+    aux_dip = 90 - netslip_plunge[0]
 else:
-    # Estimasi Bidang Bantu berbasis Perpendikular σ2 atau Sesar
+    # Perpotongan Sesar Utama dan Bidang Tegas B-Axis/Auxiliary sebagai Estimasi Net-Slip
     aux_strike = (f_strike + 90) % 360
     aux_dip = 90 - f_dip
+    netslip_plunge, netslip_trend = mplstereonet.plane_intersection(f_strike, f_dip, aux_strike, aux_dip)
 
+netslip_vec_str, _ = format_vector_notation(netslip_plunge, netslip_trend)
 aux_notag = format_geology_notation(aux_strike, aux_dip)
 
 # Format Vektor Tegasan Sigma
@@ -235,7 +237,7 @@ with c_out:
     st.markdown("---")
     st.write(f"**Rejim Tektonik Utama (Anderson, 1951):** `{anderson_regime}`")
 
-    # Display Vektor Tegasan Utama (Sigma 1, 2, 3) dengan Notasi Geologi
+    # Display Vektor Tegasan Utama (Sigma 1, 2, 3) & Net-Slip
     col_s1, col_s2, col_s3 = st.columns(3)
     with col_s1:
         st.info(f"**$\sigma_1$ (Kompresi):**\n- Vektor: **{s1_vec_str}**\n- Pole: **{s1_plane_str}**")
@@ -243,6 +245,8 @@ with c_out:
         st.warning(f"**$\sigma_2$ (Netral):**\n- Vektor: **{s2_vec_str}**\n- Pole: **{s2_plane_str}**")
     with col_s3:
         st.error(f"**$\sigma_3$ (Ekstensi):**\n- Vektor: **{s3_vec_str}**\n- Pole: **{s3_plane_str}**")
+
+    st.markdown(f"📌 **Vektor Net-Slip:** `{netslip_vec_str}`")
 
     st.markdown("---")
     st.subheader("📊 Stereonet Wulff Net")
@@ -258,12 +262,15 @@ with c_out:
     ax_sf.plane(sf2_strike, sf2_dip, color='teal', linestyle='-', linewidth=1.5, label=f'SF2 ({sf2_notag})')
     ax_sf.plane(gf_strike, gf_dip, color='purple', linestyle='-', linewidth=1.5, label=f'GF ({gf_notag})')
 
+    # Plot Titik Net-Slip (Simbol Bintang Oranye)
+    ax_sf.line(netslip_plunge, netslip_trend, marker='*', color='orange', markersize=11, label=f'Net-Slip ({netslip_vec_str})')
+
     # Plot Vektor Tegasan (Sigma 1, 2, 3)
     ax_sf.line(s1_plunge, s1_trend, 'ro', markersize=9, label=f'σ1 ({s1_vec_str})')
     ax_sf.line(s2_plunge, s2_trend, 'yo', markersize=8, label=f'σ2 ({s2_vec_str})')
     ax_sf.line(s3_plunge, s3_trend, 'go', markersize=8, label=f'σ3 ({s3_vec_str})')
 
     ax_sf.grid(True, color='gray', alpha=0.5)
-    ax_sf.legend(loc='lower left', bbox_to_anchor=(-0.35, -0.32), fontsize='x-small')
+    ax_sf.legend(loc='lower left', bbox_to_anchor=(-0.35, -0.38), fontsize='x-small')
 
     st.pyplot(fig_sf)

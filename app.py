@@ -262,8 +262,17 @@ with c_out:
     ax_sf.plane(sf2_strike, sf2_dip, color='teal', linestyle='-', linewidth=1.5, label=f'SF2 ({sf2_notag})')
     ax_sf.plane(gf_strike, gf_dip, color='purple', linestyle='-', linewidth=1.5, label=f'GF ({gf_notag})')
 
-    # Plot Titik Net-Slip (Simbol Bintang Oranye)
-    ax_sf.line(netslip_plunge, netslip_trend, marker='*', color='orange', markersize=11, label=f'Net-Slip ({netslip_vec_str})')
+    # Plot Titik Net-Slip (Segitiga Hitam, Outline Merah)
+    ax_sf.line(
+        netslip_plunge, 
+        netslip_trend, 
+        marker='^', 
+        color='black', 
+        markeredgecolor='red', 
+        markeredgewidth=1.5, 
+        markersize=10, 
+        label=f'Net-Slip ({netslip_vec_str})'
+    )
 
     # Plot Vektor Tegasan (Sigma 1, 2, 3)
     ax_sf.line(s1_plunge, s1_trend, 'ro', markersize=9, label=f'σ1 ({s1_vec_str})')

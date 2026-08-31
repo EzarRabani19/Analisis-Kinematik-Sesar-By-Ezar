@@ -6,16 +6,17 @@ import mplstereonet
 
 # Konfigurasi Halaman
 st.set_page_config(
-    page_title="Structural Geology & Fault Kinematics (Rickard 1972)", 
+    page_title="Structural Geology & Fault Kinematics (Optional Pitch)", 
     layout="wide",
     page_icon="📐"
 )
 
 # Header Aplikasi
-st.title("📐 Analisis Kinematik Sesar & Klasifikasi Rickard (1972)")
+st.title("📐 Analisis Kinematik Sesar (Dukungan Pitch N/A)")
 st.write(
-    "Aplikasi khusus geologi struktur untuk penentuan pergerakan sesar "
-    "serta determinasi nama sesar berdasarkan klasifikasi deskriptif dan **Rickard (1972)**."
+    "Aplikasi geologi struktur untuk analisis sesar berbasis orientasi bidang (*Strike/Dip*), "
+    "pasangan *Conjugate Shear Fractures* (**SF1** & **SF2**), serta *Gash Fracture* (**GF**). "
+    "Dapat digunakan meskipun **data Pitch / Rake tidak ditemukan (N/A)**."
 )
 
 st.markdown("---")
@@ -29,14 +30,21 @@ with c_in:
     f_strike = st.number_input("Strike Sesar Utama (°):", 0.0, 360.0, 45.0, key="f_strike")
     f_dip = st.number_input("Dip Sesar Utama (°):", 0.0, 90.0, 60.0, key="f_dip")
     
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        pitch = st.number_input("Nilai Pitch / Rake (°):", 0.0, 90.0, 30.0, key="pitch_val")
-    with col_p2:
-        pitch_quadrant = st.selectbox("Arah Pitch dari Strike:", ["Northeast / East", "Northwest / West", "Southwest / West", "Southeast / East"], index=0)
-
-    vertical_sense = st.radio("Sifat Pergerakan Vertikal (Berdasarkan Indikator Sesar):", 
-                              ["Naik (Reverse/Thrust)", "Turun (Normal)"], index=0)
+    # Fitur Pitch / Rake Opsional
+    has_pitch = st.checkbox("Memiliki Data Pitch / Rake Gores-Garis", value=True)
+    
+    if has_pitch:
+        col_p1, col_p2 = st.columns(2)
+        with col_p1:
+            pitch = st.number_input("Nilai Pitch / Rake (°):", 0.0, 90.0, 30.0, key="pitch_val")
+        with col_p2:
+            pitch_quadrant = st.selectbox("Arah Pitch dari Strike:", ["Northeast / East", "Northwest / West", "Southwest / West", "Southeast / East"], index=0)
+        
+        vertical_sense = st.radio("Sifat Pergerakan Vertikal (Berdasarkan Indikator Sesar):", 
+                                  ["Naik (Reverse/Thrust)", "Turun (Normal)"], index=0)
+    else:
+        pitch = None
+        st.info("ℹ️ Pitch diatur **N/A**. Pergerakan dan kinematik akan dihitung otomatis berbasis vektor tegasan (SF & GF).")
 
     st.markdown("---")
     st.subheader("🔍 2. Pasangan Shear Fracture (SF1 & SF2)")
@@ -59,57 +67,12 @@ with c_in:
 
 
 # ------------------------------------------
-# LOGIKA PENENTUAN PERGERAKAN DESKRIPTIF
-# ------------------------------------------
-if "East" in pitch_quadrant or "North" in pitch_quadrant:
-    horiz_label = "Mengiri (Sinistral)"
-    is_dextral = False
-else:
-    horiz_label = "Menganan (Dextral)"
-    is_dextral = True
-
-is_reverse = "Naik" in vertical_sense
-vert_label = "Naik" if is_reverse else "Turun"
-
-# 1. Penamaan Deskriptif Sederhana
-simple_name = f"Sesar {horiz_label.split(' ')[0]} - {vert_label}"
-
-# ------------------------------------------
-# LOGIKA KLASIFIKASI RICKARD (1972)
-# ------------------------------------------
-def get_rickard_classification(dip, pitch, is_rev, is_dex):
-    if pitch <= 10:
-        return "Right-Slip Fault" if is_dex else "Left-Slip Fault"
-    elif pitch >= 80:
-        return "Reverse-Slip Fault" if is_rev else "Normal-Slip Fault"
-    elif 10 < pitch < 45:
-        if is_dex and is_rev:
-            return "Right-Reverse Slip Fault"
-        elif is_dex and not is_rev:
-            return "Right-Normal Slip Fault"
-        elif not is_dex and is_rev:
-            return "Left-Reverse Slip Fault"
-        else:
-            return "Left-Normal Slip Fault"
-    else:  # 45 <= pitch < 80
-        if is_dex and is_rev:
-            return "Reverse-Right Slip Fault"
-        elif is_dex and not is_rev:
-            return "Normal-Right Slip Fault"
-        elif not is_dex and is_rev:
-            return "Reverse-Left Slip Fault"
-        else:
-            return "Normal-Left Slip Fault"
-
-rickard_name = get_rickard_classification(f_dip, pitch, is_reverse, is_dextral)
-
-# ------------------------------------------
 # KALKULASI VEKTOR TEGASAN (STEREO CONJUGATE & GF)
 # ------------------------------------------
-# Perpotongan SF1 dan SF2 -> Sumbu Sigma 2 (Neutral / B-Axis)
+# 1. Perpotongan SF1 dan SF2 -> Sumbu Sigma 2 (Neutral / B-Axis)
 s2_plunge, s2_trend = mplstereonet.plane_intersection(sf1_strike, sf1_dip, sf2_strike, sf2_dip)
 
-# Vektor Tegasan Utama dari Pole GF:
+# 2. Vektor Tegasan Utama dari Pole GF (Wajib):
 s1_plunge, s1_trend = mplstereonet.pole(gf_strike, gf_dip)
 s3_plunge, s3_trend = mplstereonet.pole((gf_strike + 90) % 360, gf_dip)
 
@@ -120,6 +83,70 @@ elif s1_plunge[0] < 30 and s3_plunge[0] < 30:
     anderson_regime = "Sesar Mendatar (Strike-Slip Faulting Regime)"
 else:
     anderson_regime = "Sesar Naik / Anjak (Thrust Faulting Regime)"
+
+# ------------------------------------------
+# LOGIKA EVALUASI PERGERAKAN (DENGAN / TANPA PITCH)
+# ------------------------------------------
+if has_pitch:
+    # Menggunakan Input Pengguna
+    if "East" in pitch_quadrant or "North" in pitch_quadrant:
+        horiz_label = "Mengiri (Sinistral)"
+        is_dextral = False
+    else:
+        horiz_label = "Menganan (Dextral)"
+        is_dextral = True
+    
+    is_reverse = "Naik" in vertical_sense
+    vert_label = "Naik" if is_reverse else "Turun"
+    pitch_calc_val = pitch
+else:
+    # Estimasi Pergerakan dari Rejim Tegasan jika Pitch N/A
+    is_reverse = s1_plunge[0] < 45 and s3_plunge[0] > 45
+    vert_label = "Naik" if is_reverse else "Turun"
+    
+    # Estimasi Komponen Horizontal dari Bedang Sesar vs Sumbu σ1
+    strike_diff = (f_strike - s1_trend[0]) % 180
+    if 0 < strike_diff < 90:
+        horiz_label = "Menganan (Dextral)"
+        is_dextral = True
+    else:
+        horiz_label = "Mengiri (Sinistral)"
+        is_dextral = False
+
+    # Estimasi Pitch teoritis jika N/A (berdasarkan dip sesar & plunge σ2)
+    pitch_calc_val = 45.0 if s1_plunge[0] < 45 and s3_plunge[0] < 45 else 80.0
+
+# 1. Penamaan Deskriptif Sederhana
+simple_name = f"Sesar {horiz_label.split(' ')[0]} - {vert_label}"
+
+# 2. Klasifikasi Rickard (1972)
+def get_rickard_classification(dip, pitch_val, is_rev, is_dex):
+    if pitch_val <= 10:
+        return "Right-Slip Fault" if is_dex else "Left-Slip Fault"
+    elif pitch_val >= 80:
+        return "Reverse-Slip Fault" if is_rev else "Normal-Slip Fault"
+    elif 10 < pitch_val < 45:
+        if is_dex and is_rev:
+            return "Right-Reverse Slip Fault"
+        elif is_dex and not is_rev:
+            return "Right-Normal Slip Fault"
+        elif not is_dex and is_rev:
+            return "Left-Reverse Slip Fault"
+        else:
+            return "Left-Normal Slip Fault"
+    else:  # 45 <= pitch_val < 80
+        if is_dex and is_rev:
+            return "Reverse-Right Slip Fault"
+        elif is_dex and not is_rev:
+            return "Normal-Right Slip Fault"
+        elif not is_dex and is_rev:
+            return "Reverse-Left Slip Fault"
+        else:
+            return "Normal-Left Slip Fault"
+
+rickard_name = get_rickard_classification(f_dip, pitch_calc_val, is_reverse, is_dextral)
+if not has_pitch:
+    rickard_name += " (Estimasi - Pitch N/A)"
 
 
 # Output di Kolom Kanan

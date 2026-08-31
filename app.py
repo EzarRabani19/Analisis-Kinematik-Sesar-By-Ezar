@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # Header Aplikasi
-st.title("📐 Analisis Kinematik Sesar (Dukungan Pitch N/A)")
+st.title("📐 Analisis Kinematik Sesar By Ezar Rabani")
 st.write(
     "Aplikasi geologi struktur untuk analisis sesar berbasis orientasi bidang (*Strike/Dip*), "
     "pasangan *Conjugate Shear Fractures* (**SF1** & **SF2**), serta *Gash Fracture* (**GF**). "
